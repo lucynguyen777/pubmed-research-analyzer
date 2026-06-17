@@ -28,6 +28,7 @@ from app.intelligence.citation_network import (
 from app.intelligence.semantic_search import SemanticSearchEngine
 from app.intelligence.topic_modeling import TopicModeler
 from app.intelligence.trend_analysis import TrendDetector
+from app.intelligence.author_network import AuthorNetworkBuilder, AuthorAnalyzer
 from app.export import export_influential_papers, export_citation_network
 
 st.set_page_config(page_title="PubMed Research Analyzer", layout="wide", page_icon="🔬")
@@ -87,7 +88,7 @@ def main():
 
     # Display results if available
     if not st.session_state.articles_df.empty:
-        tabs = st.tabs(["📊 Overview", "📈 Analytics", "🔍 Research Gaps", "⚖️ Comparison", "🕸️ Citation Network", "🧠 Topic Modeling", "📈 Trend Detection", "💾 Export"])
+        tabs = st.tabs(["📊 Overview", "📈 Analytics", "🔍 Research Gaps", "⚖️ Comparison", "🕸️ Citation Network", "🧠 Topic Modeling", "📈 Trend Detection", "👥 Author Networks", "💾 Export"])
         
         with tabs[0]:
             display_overview()
@@ -109,8 +110,11 @@ def main():
             
         with tabs[6]:
             display_trends()
-        
+            
         with tabs[7]:
+            display_author_networks()
+        
+        with tabs[8]:
             display_export_options()
 
 
@@ -550,6 +554,69 @@ def display_trends():
                     st.info("No timeline data for selected terms.")
         else:
             st.info("Click 'Run Trend Analysis' to calculate topic momentum.")
+
+def display_author_networks():
+    """Display author collaboration network analysis."""
+    st.header("Author Collaboration Networks")
+    st.markdown("Analyze co-authorship patterns to identify influential researchers and research groups.")
+    
+    df = st.session_state.articles_df
+    
+    if "authors" not in df.columns or df["authors"].apply(lambda x: isinstance(x, list)).sum() == 0:
+        st.warning("Author network analysis requires articles with valid 'authors' metadata. Please refine your search.")
+        return
+    
+    col1, col2 = st.columns([1, 3])
+    
+    with col1:
+        st.subheader("Settings")
+        if st.button("👥 Build Author Network", type="primary", use_container_width=True):
+            with st.spinner("Building author collaboration network..."):
+                builder = AuthorNetworkBuilder()
+                graph = builder.build_network(df)
+                analyzer = AuthorAnalyzer(graph)
+                
+                st.session_state.author_network_data = {
+                    "graph": graph,
+                    "analyzer": analyzer,
+                    "communities": analyzer.detect_research_groups()
+                }
+                st.success("Author network built successfully!")
+    
+    with col2:
+        if "author_network_data" in st.session_state:
+            data = st.session_state.author_network_data
+            analyzer = data["analyzer"]
+            
+            # Display top authors
+            st.subheader("Top Authors by Degree Centrality")
+            top_authors = analyzer.get_top_authors(metric="degree", top_n=10)
+            if top_authors:
+                top_authors_df = pd.DataFrame(top_authors, columns=["Author", "Centrality"])
+                st.dataframe(top_authors_df, use_container_width=True)
+            else:
+                st.info("No authors found in the network.")
+            
+            # Display communities
+            st.subheader("Research Groups (Communities)")
+            communities = data["communities"]
+            if communities:
+                st.markdown(f"Detected **{len(communities)}** research groups.")
+                for i, community in enumerate(communities[:5], 1):
+                    st.markdown(f"**Group {i}:** {', '.join(list(community)[:10])}...")
+            else:
+                st.info("No communities detected.")
+            
+            # Collaboration path
+            st.subheader("Collaboration Path Finder")
+            author1 = st.text_input("Author 1")
+            author2 = st.text_input("Author 2")
+            if st.button("Find Collaboration Path"):
+                path = analyzer.find_collaboration_path(author1, author2)
+                if path:
+                    st.markdown(f"**Collaboration Path:** {' → '.join(path)}")
+                else:
+                    st.info("No collaboration path found between the selected authors.")
 
 def display_export_options():
     """Display export options."""

@@ -9,4 +9,7 @@ python-dotenv>=1.0.0
 pytest>=8.0.0
 # New dependencies for Phase 1: Citation Network Analysis
 networkx>=3.2
-python-louvain>=0.16
+python-louvain>=0.16sentence-transformers>=2.3.0
+faiss-cpu>=1.7.4
+scikit-learn>=1.4.0
+redis>=5.0.1

@@ -608,8 +608,8 @@ class NetworkVisualizer:
             deg_norm = deg / max_deg if max_deg > 0 else 0
             scores[node] = pr + deg_norm
 
-        top_nodes = sorted(scores, key=scores.get, reverse=True)[:max_nodes]
-        return self.graph.subgraph(top_nodes)
+        top_nodes = sorted(scores.keys(), key=lambda k: scores[k], reverse=True)[:max_nodes]
+        return self.graph.subgraph(top_nodes).copy()
 
     def _compute_layout(
         self, subgraph: nx.DiGraph, layout: str

@@ -25,6 +25,7 @@ from app.intelligence.citation_network import (
     NetworkAnalyzer,
     NetworkVisualizer,
 )
+from app.intelligence.semantic_search import SemanticSearchEngine
 from app.export import export_influential_papers, export_citation_network
 
 st.set_page_config(page_title="PubMed Research Analyzer", layout="wide", page_icon="🔬")
@@ -110,14 +111,44 @@ def display_overview():
     st.header("Articles Overview")
     
     df = st.session_state.articles_df
-    st.metric("Total Articles", len(df))
     
-    # Display table
-    display_df = df[["pmid", "title", "journal", "pub_date"]].copy()
-    st.dataframe(display_df, use_container_width=True, height=400)
+    # Initialize Semantic Search Engine in session state
+    if "semantic_engine" not in st.session_state:
+        st.session_state.semantic_engine = SemanticSearchEngine()
+        
+    if not st.session_state.semantic_engine.is_ready:
+        with st.spinner("Building semantic search index..."):
+            st.session_state.semantic_engine.build_index(df)
+
+    # Top layout: Search & Metrics
+    col1, col2 = st.columns([3, 1])
     
-    # Article details expander
-    with st.expander("View Article Details"):
+    with col1:
+        st.subheader("Semantic Search (Local Corpus)")
+        semantic_query = st.text_input("Search current articles by concept/meaning:", placeholder="e.g. mRNA delivery mechanisms")
+        
+    with col2:
+        st.metric("Total Articles", len(df))
+        
+    if semantic_query:
+        search_results = st.session_state.semantic_engine.search(semantic_query, top_k=5)
+        if not search_results.empty:
+            st.markdown("##### Top Semantic Matches")
+            for _, row in search_results.iterrows():
+                with st.container(border=True):
+                    st.markdown(f"**{row['title']}** (Score: {row['similarity_score']:.3f})")
+                    st.caption(f"PMID: {row['pmid']} | Journal: {row['journal']} | Date: {row['pub_date']}")
+        else:
+            st.info("No strong semantic matches found.")
+    else:
+        # Display default table when no semantic query
+        display_df = df[["pmid", "title", "journal", "pub_date"]].copy()
+        st.dataframe(display_df, use_container_width=True, height=400)
+    
+    st.divider()
+    
+    # Article details expander with similar papers
+    with st.expander("View Article Details & Similar Papers"):
         selected_pmid = st.selectbox("Select Article", df["pmid"].tolist())
         article = df[df["pmid"] == selected_pmid].iloc[0]
         
@@ -132,6 +163,16 @@ def display_overview():
         
         st.write("**Abstract:**")
         st.write(article["abstract"])
+        
+        # Display Similar Papers
+        st.markdown("#### Similar Papers in Corpus")
+        if st.button("Find Similar Papers"):
+            similar_df = st.session_state.semantic_engine.find_similar_papers(selected_pmid, top_k=3)
+            if not similar_df.empty:
+                for _, sim_row in similar_df.iterrows():
+                    st.markdown(f"- **[{sim_row['pmid']}]** {sim_row['title']} *(Sim: {sim_row['similarity_score']:.2f})*")
+            else:
+                st.info("No similar papers found in current corpus.")
 
 
 def display_analytics():

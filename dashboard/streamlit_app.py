@@ -26,6 +26,7 @@ from app.intelligence.citation_network import (
     NetworkVisualizer,
 )
 from app.intelligence.semantic_search import SemanticSearchEngine
+from app.intelligence.topic_modeling import TopicModeler
 from app.export import export_influential_papers, export_citation_network
 
 st.set_page_config(page_title="PubMed Research Analyzer", layout="wide", page_icon="🔬")
@@ -85,7 +86,7 @@ def main():
 
     # Display results if available
     if not st.session_state.articles_df.empty:
-        tabs = st.tabs(["📊 Overview", "📈 Analytics", "🔍 Research Gaps", "⚖️ Comparison", "�️ Citation Network", "�💾 Export"])
+        tabs = st.tabs(["📊 Overview", "📈 Analytics", "🔍 Research Gaps", "⚖️ Comparison", "🕸️ Citation Network", "🧠 Topic Modeling", "💾 Export"])
         
         with tabs[0]:
             display_overview()
@@ -101,8 +102,11 @@ def main():
         
         with tabs[4]:
             display_citation_network()
-        
+            
         with tabs[5]:
+            display_topic_modeling()
+        
+        with tabs[6]:
             display_export_options()
 
 
@@ -385,6 +389,79 @@ def display_comparison():
             st.subheader("Limitations")
             st.dataframe(comparison["limitations"], use_container_width=True)
 
+
+def display_topic_modeling():
+    """Display topic modeling analysis."""
+    st.header("Latent Topic Discovery")
+    st.markdown("Automatically categorize research papers into underlying themes using AI clustering.")
+    
+    df = st.session_state.articles_df
+    
+    col1, col2 = st.columns([1, 3])
+    
+    with col1:
+        st.subheader("Settings")
+        n_topics = st.number_input("Target number of topics", min_value=2, max_value=20, value=min(5, max(2, len(df)//5)))
+        
+        if st.button("🧠 Extract Topics", type="primary", use_container_width=True):
+            with st.spinner("Analyzing text and extracting topics..."):
+                modeler = TopicModeler(n_topics=n_topics)
+                success = modeler.fit(df)
+                
+                if success:
+                    st.session_state.topic_model_data = {
+                        "words": modeler.get_topic_words(top_n=8),
+                        "distribution": modeler.get_topic_distribution(),
+                        "doc_topics": modeler.get_document_topics()
+                    }
+                    st.success(f"Extracted {modeler.n_topics_} topics!")
+                else:
+                    st.error("Topic modeling failed. Not enough textual data.")
+                    
+    with col2:
+        if "topic_model_data" in st.session_state:
+            data = st.session_state.topic_model_data
+            
+            # Display topics and keywords
+            st.subheader("Discovered Topics")
+            
+            # Create a dataframe for the topics
+            topics_data = []
+            for t_id, words in data["words"].items():
+                count = data["distribution"].get(t_id, 0)
+                topics_data.append({
+                    "Topic": f"Topic {t_id}",
+                    "Papers": count,
+                    "Key Concepts": ", ".join(words)
+                })
+                
+            topics_df = pd.DataFrame(topics_data)
+            st.dataframe(topics_df, use_container_width=True)
+            
+            # Distribution chart
+            st.subheader("Topic Distribution")
+            fig = px.pie(
+                topics_df, 
+                values='Papers', 
+                names='Topic',
+                title="Proportion of Papers per Topic",
+                hole=0.4
+            )
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Document Filter
+            st.subheader("Explore by Topic")
+            selected_topic = st.selectbox("Select Topic", [f"Topic {i}" for i in data["words"].keys()])
+            topic_idx = int(selected_topic.split()[-1])
+            
+            doc_df = data["doc_topics"]
+            filtered_docs = doc_df[doc_df['Topic_ID'] == topic_idx][['pmid', 'title', 'journal', 'Topic_Confidence']]
+            filtered_docs = filtered_docs.sort_values('Topic_Confidence', ascending=False)
+            
+            st.markdown(f"**Top papers for {selected_topic}:**")
+            st.dataframe(filtered_docs, use_container_width=True)
+        else:
+            st.info("Click 'Extract Topics' to analyze the corpus.")
 
 def display_export_options():
     """Display export options."""

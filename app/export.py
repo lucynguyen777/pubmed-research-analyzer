@@ -2,7 +2,7 @@
 Export functionality for articles and analysis results.
 """
 
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 import pandas as pd
 from pathlib import Path
 import logging
@@ -207,6 +207,82 @@ def export_research_gap_report(
         return str(filepath)
     except Exception as exc:
         logger.error(f"Gap report export failed: {exc}")
+        raise
+
+
+def export_citation_network(
+    graph_data: Dict[str, Any],
+    filename: str = "citation_network.xlsx"
+) -> str:
+    """
+    Export citation network analysis to Excel.
+
+    Args:
+        graph_data: Dict with 'nodes' DataFrame, 'edges' DataFrame, 'stats' Dict
+        filename: Output filename
+
+    Returns:
+        Path to exported file
+    """
+    if not graph_data:
+        logger.warning("Empty graph data provided for export")
+        return ""
+
+    try:
+        filepath = EXPORTS_DIR / filename
+
+        with pd.ExcelWriter(filepath, engine="openpyxl") as writer:
+            # Node metrics
+            if "nodes" in graph_data and isinstance(graph_data["nodes"], pd.DataFrame):
+                graph_data["nodes"].to_excel(writer, sheet_name="Node Metrics", index=False)
+
+            # Edge list
+            if "edges" in graph_data and isinstance(graph_data["edges"], pd.DataFrame):
+                graph_data["edges"].to_excel(writer, sheet_name="Citation Edges", index=False)
+
+            # Network statistics
+            if "stats" in graph_data and isinstance(graph_data["stats"], dict):
+                stats_df = pd.DataFrame(
+                    list(graph_data["stats"].items()),
+                    columns=["Metric", "Value"]
+                )
+                stats_df.to_excel(writer, sheet_name="Network Statistics", index=False)
+
+        logger.info(f"Citation network exported to {filepath}")
+        return str(filepath)
+    except Exception as exc:
+        logger.error(f"Citation network export failed: {exc}")
+        raise
+
+
+def export_influential_papers(
+    papers: List[Tuple[str, float]],
+    filename: str = "influential_papers.csv",
+    metric_name: str = "pagerank"
+) -> str:
+    """
+    Export influential papers ranking to CSV.
+
+    Args:
+        papers: List of (pmid, score) tuples
+        filename: Output filename
+        metric_name: Name of the metric for the score column
+
+    Returns:
+        Path to exported file
+    """
+    if not papers:
+        logger.warning("Empty papers list provided for export")
+        return ""
+
+    try:
+        filepath = EXPORTS_DIR / filename
+        df = pd.DataFrame(papers, columns=["pmid", metric_name])
+        df.to_csv(filepath, index=False, encoding="utf-8")
+        logger.info(f"Influential papers exported to {filepath}")
+        return str(filepath)
+    except Exception as exc:
+        logger.error(f"Influential papers export failed: {exc}")
         raise
 
 

@@ -20,6 +20,12 @@ from app.summarize import summarize_abstract
 from app.research_gap import detect_research_gaps, generate_gap_report
 from app.literature_comparison import compare_articles, generate_comparison_report
 from app.config import NCBI_EMAIL, MAX_RESULTS_DEFAULT
+from app.intelligence.citation_network import (
+    CitationNetworkBuilder,
+    NetworkAnalyzer,
+    NetworkVisualizer,
+)
+from app.export import export_influential_papers, export_citation_network
 
 st.set_page_config(page_title="PubMed Research Analyzer", layout="wide", page_icon="🔬")
 
@@ -78,7 +84,7 @@ def main():
 
     # Display results if available
     if not st.session_state.articles_df.empty:
-        tabs = st.tabs(["📊 Overview", "📈 Analytics", "🔍 Research Gaps", "⚖️ Comparison", "💾 Export"])
+        tabs = st.tabs(["📊 Overview", "📈 Analytics", "🔍 Research Gaps", "⚖️ Comparison", "�️ Citation Network", "�💾 Export"])
         
         with tabs[0]:
             display_overview()
@@ -93,6 +99,9 @@ def main():
             display_comparison()
         
         with tabs[4]:
+            display_citation_network()
+        
+        with tabs[5]:
             display_export_options()
 
 
@@ -229,6 +238,88 @@ def display_research_gaps():
             else:
                 st.info("No future directions found")
 
+
+def display_citation_network():
+    """Display interactive citation network and analysis."""
+    st.header("Citation Network Intelligence")
+    st.markdown("Build and analyze citation networks to discover influential papers and research communities.")
+
+    df = st.session_state.articles_df
+    seed_pmids = df["pmid"].tolist()
+
+    if "network_data" not in st.session_state:
+        st.session_state.network_data = None
+
+    col1, col2 = st.columns([1, 3])
+
+    with col1:
+        st.subheader("Network Settings")
+        max_seeds = st.number_input("Max seed papers", min_value=1, max_value=50, value=10)
+        layout = st.selectbox("Layout Algorithm", ["spring", "kamada_kawai", "circular"])
+        color_by = st.selectbox("Color By", ["pagerank", "betweenness", "closeness"])
+        size_by = st.selectbox("Size By", ["in_degree", "total_degree", "pagerank"])
+
+        if st.button("🕸️ Build Network", type="primary", use_container_width=True):
+            with st.spinner("Fetching citation data & building network..."):
+                builder = CitationNetworkBuilder()
+                builder.build_network(seed_pmids[:max_seeds])
+                
+                analyzer = NetworkAnalyzer(builder.graph)
+                analyzer.calculate_all_metrics()
+                communities = analyzer.detect_communities()
+                
+                st.session_state.network_data = {
+                    "graph": builder.graph,
+                    "metrics": analyzer.metrics,
+                    "communities": communities,
+                    "stats": builder.get_network_stats(),
+                    "influential": analyzer.identify_influential_papers()
+                }
+
+    with col2:
+        if st.session_state.network_data:
+            data = st.session_state.network_data
+            
+            # Display stats
+            stats_cols = st.columns(4)
+            stats = data["stats"]
+            stats_cols[0].metric("Papers in Network", stats.get("Papers in network", 0))
+            stats_cols[1].metric("Citation Links", stats.get("Citation links", 0))
+            stats_cols[2].metric("Density", stats.get("Network density", "0"))
+            stats_cols[3].metric("Connected Components", stats.get("Largest component", 0))
+
+            st.divider()
+
+            # Display interactive graph
+            st.subheader("Interactive Citation Graph")
+            visualizer = NetworkVisualizer(data["graph"], data["metrics"])
+            
+            fig_network = visualizer.generate_interactive_network(
+                layout=layout,
+                color_by=color_by,
+                node_size_metric=size_by,
+                max_nodes=150
+            )
+            st.plotly_chart(fig_network, use_container_width=True)
+
+            st.divider()
+            
+            # Influence charts
+            st.subheader("Influence & Communities")
+            c1, c2 = st.columns(2)
+            
+            with c1:
+                fig_influence = visualizer.generate_influence_chart(top_n=10)
+                st.plotly_chart(fig_influence, use_container_width=True)
+                
+            with c2:
+                if data["communities"]:
+                    fig_community = visualizer.generate_community_chart(data["communities"])
+                    st.plotly_chart(fig_community, use_container_width=True)
+                else:
+                    st.info("Community detection requires python-louvain package.")
+        else:
+            st.info("Click 'Build Network' to generate the citation graph.")
 
 def display_comparison():
     """Display literature comparison."""

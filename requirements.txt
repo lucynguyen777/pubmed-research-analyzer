@@ -7,3 +7,6 @@ openpyxl>=3.1.2
 requests>=2.31.0
 python-dotenv>=1.0.0
 pytest>=8.0.0
+# New dependencies for Phase 1: Citation Network Analysis
+networkx>=3.2
+python-louvain>=0.16

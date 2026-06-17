@@ -27,6 +27,7 @@ from app.intelligence.citation_network import (
 )
 from app.intelligence.semantic_search import SemanticSearchEngine
 from app.intelligence.topic_modeling import TopicModeler
+from app.intelligence.trend_analysis import TrendDetector
 from app.export import export_influential_papers, export_citation_network
 
 st.set_page_config(page_title="PubMed Research Analyzer", layout="wide", page_icon="🔬")
@@ -86,7 +87,7 @@ def main():
 
     # Display results if available
     if not st.session_state.articles_df.empty:
-        tabs = st.tabs(["📊 Overview", "📈 Analytics", "🔍 Research Gaps", "⚖️ Comparison", "🕸️ Citation Network", "🧠 Topic Modeling", "💾 Export"])
+        tabs = st.tabs(["📊 Overview", "📈 Analytics", "🔍 Research Gaps", "⚖️ Comparison", "🕸️ Citation Network", "🧠 Topic Modeling", "📈 Trend Detection", "💾 Export"])
         
         with tabs[0]:
             display_overview()
@@ -105,8 +106,11 @@ def main():
             
         with tabs[5]:
             display_topic_modeling()
-        
+            
         with tabs[6]:
+            display_trends()
+        
+        with tabs[7]:
             display_export_options()
 
 
@@ -462,6 +466,90 @@ def display_topic_modeling():
             st.dataframe(filtered_docs, use_container_width=True)
         else:
             st.info("Click 'Extract Topics' to analyze the corpus.")
+
+def display_trends():
+    """Display research trend analysis."""
+    st.header("Research Trend & Momentum Detection")
+    st.markdown("Identify accelerating, stable, and declining research topics over time using temporal linear regression.")
+    
+    df = st.session_state.articles_df
+    
+    # Check if there are multiple years
+    years = df['pub_date'].apply(lambda d: int(str(d).split()[0]) if isinstance(d, str) and str(d).split()[0].isdigit() else None).dropna()
+    if len(years.unique()) < 2:
+        st.warning("Trend detection requires articles published across at least 2 distinct years. Try searching for a broader term or increasing the number of maximum results.")
+        return
+        
+    col1, col2 = st.columns([1, 3])
+    
+    with col1:
+        st.subheader("Settings")
+        min_occurrences = st.slider("Minimum term occurrences", min_value=1, max_value=10, value=2)
+        
+        if st.button("📈 Run Trend Analysis", type="primary", use_container_width=True):
+            with st.spinner("Analyzing keyword trajectories..."):
+                detector = TrendDetector(min_df=min_occurrences)
+                success = detector.fit(df)
+                if success:
+                    momentum = detector.calculate_momentum()
+                    st.session_state.trend_data = {
+                        "detector": detector,
+                        "momentum": momentum,
+                        "bursts": detector.get_burst_keywords()
+                    }
+                    st.success("Trajectory mapping complete!")
+                else:
+                    st.error("Could not run trend analysis.")
+                    
+    with col2:
+        if "trend_data" in st.session_state:
+            data = st.session_state.trend_data
+            momentum_df = data["momentum"]
+            
+            if momentum_df.empty:
+                st.info("No matching terms found. Try decreasing the minimum occurrence threshold.")
+                return
+                
+            # Display Bursts
+            if data["bursts"]:
+                st.markdown("### 💥 Sudden Burst Keywords (Recent Spike)")
+                st.write(", ".join([f"**{b}**" for b in data["bursts"]]))
+                st.divider()
+                
+            # Layout tables
+            c1, c2 = st.columns(2)
+            
+            with c1:
+                st.markdown("### 🚀 Emerging Concepts")
+                emerging = momentum_df[momentum_df['Trend'] == 'Emerging 🚀'].head(15)
+                if not emerging.empty:
+                    st.dataframe(emerging[['Term', 'Total_Frequency', 'Slope']], use_container_width=True)
+                else:
+                    st.caption("No rapid growth terms found.")
+                    
+            with c2:
+                st.markdown("### 📉 Declining/Maturing Concepts")
+                declining = momentum_df[momentum_df['Trend'] == 'Declining 📉'].head(15)
+                if not declining.empty:
+                    st.dataframe(declining[['Term', 'Total_Frequency', 'Slope']], use_container_width=True)
+                else:
+                    st.caption("No rapid decline terms found.")
+                    
+            # Trend Chart
+            st.subheader("Keyword Frequency Trajectory")
+            selected_terms = st.multiselect("Select concepts to plot over time:", momentum_df['Term'].tolist()[:10], default=momentum_df['Term'].tolist()[:3])
+            
+            if selected_terms:
+                timeline = data["detector"].get_timeline_data(selected_terms)
+                if not timeline.empty:
+                    # Melt for plotly
+                    melted = timeline.melt(id_vars=['Year'], var_name='Term', value_name='Occurrences')
+                    fig = px.line(melted, x='Year', y='Occurrences', color='Term', markers=True, title="Keyword Frequency Over Years")
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.info("No timeline data for selected terms.")
+        else:
+            st.info("Click 'Run Trend Analysis' to calculate topic momentum.")
 
 def display_export_options():
     """Display export options."""

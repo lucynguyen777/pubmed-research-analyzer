@@ -82,7 +82,8 @@ class AuthorAnalyzer:
         Returns:
             List of sets, where each set contains authors in a community.
         """
-        return list(greedy_modularity_communities(self.graph))
+        communities = greedy_modularity_communities(self.graph)
+        return [set(c) for c in communities]
 
     def get_author_stats(self, author_name: str) -> Dict:
         """

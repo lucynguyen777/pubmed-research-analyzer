@@ -6,19 +6,25 @@ Replaces keyword-matching with semantic similarity search.
 import pandas as pd
 import numpy as np
 import logging
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional, Tuple, Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from sentence_transformers import SentenceTransformer  # pyright: ignore[reportMissingImports]
+    import faiss  # pyright: ignore[reportMissingImports]
+    from sklearn.feature_extraction.text import TfidfVectorizer  # pyright: ignore[reportMissingImports]
+    from sklearn.metrics.pairwise import cosine_similarity  # pyright: ignore[reportMissingImports]
 
 logger = logging.getLogger(__name__)
 
 try:
-    from sentence_transformers import SentenceTransformer
-    import faiss
+    from sentence_transformers import SentenceTransformer  # pyright: ignore[reportMissingImports]
+    import faiss  # pyright: ignore[reportMissingImports]
     HAS_SENTENCE_TRANSFORMERS = True
 except ImportError:
     logger.warning("sentence-transformers or faiss not installed. Falling back to TF-IDF.")
     HAS_SENTENCE_TRANSFORMERS = False
-    from sklearn.feature_extraction.text import TfidfVectorizer
-    from sklearn.metrics.pairwise import cosine_similarity
+    from sklearn.feature_extraction.text import TfidfVectorizer  # pyright: ignore[reportMissingImports]
+    from sklearn.metrics.pairwise import cosine_similarity  # pyright: ignore[reportMissingImports]
 
 
 class SemanticSearchEngine:
@@ -34,6 +40,12 @@ class SemanticSearchEngine:
         self.is_ready = False
         self.df: Optional[pd.DataFrame] = None
         self.pmids: List[str] = []
+        self.model: Any = None
+        self.index: Any = None
+        self.dimension: int = 0
+        self._mode: str = "tfidf"
+        self.vectorizer: Any = None
+        self.tfidf_matrix: Any = None
         
         if HAS_SENTENCE_TRANSFORMERS:
             try:
@@ -82,6 +94,7 @@ class SemanticSearchEngine:
         
         try:
             if self._mode == "transformer":
+                assert self.model is not None
                 # Generate embeddings
                 embeddings = self.model.encode(texts, convert_to_numpy=True, show_progress_bar=False)
                 faiss.normalize_L2(embeddings)
@@ -124,6 +137,8 @@ class SemanticSearchEngine:
         
         try:
             if self._mode == "transformer":
+                assert self.model is not None
+                assert self.index is not None
                 query_vector = self.model.encode([query], convert_to_numpy=True)
                 faiss.normalize_L2(query_vector)
                 
@@ -132,6 +147,8 @@ class SemanticSearchEngine:
                 results_idx = indices[0]
                 similarity_scores = scores[0]
             else:
+                assert self.vectorizer is not None
+                assert self.tfidf_matrix is not None
                 query_vec = self.vectorizer.transform([query])
                 cosine_sim = cosine_similarity(query_vec, self.tfidf_matrix).flatten()
                 
@@ -180,6 +197,8 @@ class SemanticSearchEngine:
         
         try:
             if self._mode == "transformer":
+                assert self.model is not None
+                assert self.index is not None
                 # Get the embedding for the target paper
                 # For simplicity, we re-embed its text (or we could extract from FAISS if using IndexIVF, but FlatIP doesn't store easily)
                 row = self.df.iloc[idx]
@@ -192,6 +211,7 @@ class SemanticSearchEngine:
                 results_idx = indices[0]
                 similarity_scores = scores[0]
             else:
+                assert self.tfidf_matrix is not None
                 target_vec = self.tfidf_matrix[idx]
                 cosine_sim = cosine_similarity(target_vec, self.tfidf_matrix).flatten()
                 

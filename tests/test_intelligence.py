@@ -208,21 +208,21 @@ class TestNetworkVisualizer:
         fig = self.visualizer.generate_interactive_network()
         assert fig is not None
         assert hasattr(fig, "data")
-        assert len(fig.data) > 0
+        assert len(getattr(fig, "data", ())) > 0
 
     def test_interactive_network_layout_options(self):
         """Different layout options produce valid figures."""
         spring_fig = self.visualizer.generate_interactive_network(layout="spring")
-        assert len(spring_fig.data) > 0
+        assert len(getattr(spring_fig, "data", ())) > 0
 
         circular_fig = self.visualizer.generate_interactive_network(layout="circular")
-        assert len(circular_fig.data) > 0
+        assert len(getattr(circular_fig, "data", ())) > 0
 
     def test_influence_chart(self):
         """Influence chart returns a Plotly figure with bars."""
         fig = self.visualizer.generate_influence_chart(top_n=3)
         assert fig is not None
-        assert len(fig.data) > 0
+        assert len(getattr(fig, "data", ())) > 0
 
     def test_community_chart_empty(self):
         """Community chart handles empty communities dict."""
@@ -234,7 +234,7 @@ class TestNetworkVisualizer:
         communities = {"A": 0, "B": 1, "C": 1}
         fig = self.visualizer.generate_community_chart(communities)
         assert fig is not None
-        assert len(fig.data) > 0
+        assert len(getattr(fig, "data", ())) > 0
 
     def test_sample_graph_small(self):
         """Small graph under max_nodes returns unchanged."""

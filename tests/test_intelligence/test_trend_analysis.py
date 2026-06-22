@@ -40,13 +40,14 @@ def test_trend_detector_init():
 def test_trend_detector_empty():
     detector = TrendDetector()
     assert detector.fit(pd.DataFrame()) == False
-    assert detector.fit(None) == False
+    assert detector.fit(None) == False  # type: ignore[arg-type]
 
 def test_trend_detector_fit_and_momentum(mock_timeline_df):
     detector = TrendDetector(min_df=2)
     success = detector.fit(mock_timeline_df)
     assert success
     assert detector.is_fitted
+    assert detector.df is not None
     
     # Verify year extraction
     assert set(detector.df['Year'].unique()) == {2020, 2021, 2022}

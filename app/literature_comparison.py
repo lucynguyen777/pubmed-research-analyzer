@@ -2,7 +2,7 @@
 Literature Comparison Module - Compares multiple PubMed articles.
 """
 
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, cast
 import pandas as pd
 import logging
 import re
@@ -33,7 +33,7 @@ def compare_articles(df: pd.DataFrame, pmids: Optional[List[str]] = None) -> Dic
 
     # Filter by specific PMIDs if provided
     if pmids:
-        df = df[df["pmid"].isin(pmids)]
+        df = cast(pd.DataFrame, df[df["pmid"].isin(pmids)])
 
     if df.empty:
         logger.warning("No articles found for comparison")
@@ -65,14 +65,22 @@ def _generate_overview_comparison(df: pd.DataFrame) -> pd.DataFrame:
 
     for _, row in df.iterrows():
         # Extract sample size if mentioned in abstract
-        sample_size = _extract_sample_size(row.get("abstract", ""))
+        abstract_val = row.get("abstract", "")
+        sample_size = _extract_sample_size(str(abstract_val) if abstract_val is not None else "")
+
+        title_val = row.get("title", "N/A")
+        title_str = str(title_val) if title_val is not None else "N/A"
+        title_display = title_str[:80] + "..." if len(title_str) > 80 else title_str
+
+        authors_val = row.get("authors", [])
+        authors_count = len(authors_val) if authors_val is not None else 0
 
         comparison_data.append({
             "PMID": row.get("pmid", "N/A"),
-            "Title": row.get("title", "N/A")[:80] + "..." if len(str(row.get("title", ""))) > 80 else row.get("title", "N/A"),
+            "Title": title_display,
             "Year": str(row.get("pub_date", "N/A")).split("-")[0],
             "Journal": row.get("journal", "N/A"),
-            "Authors": len(row.get("authors", [])),
+            "Authors": authors_count,
             "Sample Size": sample_size
         })
 
@@ -175,9 +183,13 @@ def _extract_findings_comparison(df: pd.DataFrame) -> pd.DataFrame:
         # Get first 2 findings
         main_findings = findings[:2] if findings else ["No clear findings extracted"]
 
+        title_val = row.get("title", "N/A")
+        title_str = str(title_val) if title_val is not None else "N/A"
+        title_display = title_str[:60] + "..." if len(title_str) > 60 else title_str
+
         findings_data.append({
             "PMID": row.get("pmid", "N/A"),
-            "Title": row.get("title", "N/A")[:60] + "..." if len(str(row.get("title", ""))) > 60 else row.get("title", "N/A"),
+            "Title": title_display,
             "Key Finding 1": main_findings[0][:150] + "..." if len(main_findings[0]) > 150 else main_findings[0],
             "Key Finding 2": main_findings[1][:150] + "..." if len(main_findings) > 1 and len(main_findings[1]) > 150 else (main_findings[1] if len(main_findings) > 1 else "N/A")
         })
@@ -207,9 +219,13 @@ def _extract_limitations_comparison(df: pd.DataFrame) -> pd.DataFrame:
 
         main_limitations = limitations[:2] if limitations else ["No limitations mentioned"]
 
+        title_val = row.get("title", "N/A")
+        title_str = str(title_val) if title_val is not None else "N/A"
+        title_display = title_str[:60] + "..." if len(title_str) > 60 else title_str
+
         limitations_data.append({
             "PMID": row.get("pmid", "N/A"),
-            "Title": row.get("title", "N/A")[:60] + "..." if len(str(row.get("title", ""))) > 60 else row.get("title", "N/A"),
+            "Title": title_display,
             "Limitation 1": main_limitations[0][:150] + "..." if len(main_limitations[0]) > 150 else main_limitations[0],
             "Limitation 2": main_limitations[1][:150] + "..." if len(main_limitations) > 1 and len(main_limitations[1]) > 150 else (main_limitations[1] if len(main_limitations) > 1 else "N/A")
         })

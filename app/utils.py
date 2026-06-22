@@ -4,7 +4,7 @@ Utility functions for the PubMed Research Analyzer.
 
 import time
 import logging
-from typing import List, Dict, Any
+from typing import Dict, Any, List, Optional
 import requests
 import re
 
@@ -43,7 +43,7 @@ def retry(
     return decorator
 
 @retry()
-def safe_get(url: str, params: Dict[str, Any] = None, headers: Dict[str, str] = None) -> requests.Response:
+def safe_get(url: str, params: Optional[Dict[str, Any]] = None, headers: Optional[Dict[str, str]] = None) -> requests.Response:
     """
     Perform a GET request with retry logic.
     """

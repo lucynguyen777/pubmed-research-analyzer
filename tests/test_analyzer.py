@@ -110,10 +110,10 @@ class TestAnalyze:
     def test_get_publications_per_year(self, sample_dataframe):
         """Test year count analysis."""
         year_counts = get_publications_per_year(sample_dataframe)
-        assert 2020 in year_counts
-        assert 2021 in year_counts
-        assert year_counts[2020] == 2  # Two articles in 2020
-        assert year_counts[2021] == 1  # One article in 2021
+        assert "2020" in year_counts
+        assert "2021" in year_counts
+        assert year_counts["2020"] == 2  # Two articles in 2020
+        assert year_counts["2021"] == 1  # One article in 2021
     
     def test_get_top_journals(self, sample_dataframe):
         """Test journal count analysis."""

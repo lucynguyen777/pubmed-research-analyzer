@@ -74,7 +74,7 @@ class TopicModeler:
 
             # 2. NMF Factorization
             self.model = NMF(
-                n_components=self.n_topics_, 
+                n_components=self.n_topics_,  # type: ignore[arg-type]
                 random_state=42,
                 init='nndsvda',
                 max_iter=500
@@ -143,4 +143,4 @@ class TopicModeler:
             return {}
             
         counts = pd.Series(self.topic_assignments).value_counts()
-        return {int(k): int(v) for k, v in counts.items()}
+        return {int(k): int(v) for k, v in counts.items()}  # type: ignore[arg-type]

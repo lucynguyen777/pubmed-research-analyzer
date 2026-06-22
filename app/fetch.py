@@ -2,7 +2,7 @@
 Article fetching and details extraction from PubMed.
 """
 
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, cast
 import pandas as pd
 from Bio import Entrez
 import logging
@@ -29,11 +29,13 @@ def fetch_article_details(pmid: str) -> Dict[str, Any]:
         record = Entrez.read(handle)
         handle.close()
 
-        if not record.get("PubmedArticle"):
+        record_dict = cast(Dict[str, Any], record)
+        if not record_dict.get("PubmedArticle"):
             logger.warning(f"No article found for PMID: {pmid}")
             return _empty_article_record(pmid)
 
-        article = record["PubmedArticle"][0]
+        article_list = cast(List[Dict[str, Any]], record_dict["PubmedArticle"])
+        article = article_list[0]
         return _parse_article(article, pmid)
 
     except Exception as exc:

@@ -2,7 +2,7 @@
 PubMed search functionality using NCBI Entrez API.
 """
 
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, cast
 from Bio import Entrez
 import logging
 
@@ -49,7 +49,8 @@ def search_pubmed(
         record = Entrez.read(handle)
         handle.close()
 
-        pmids = record.get("IdList", [])
+        record_dict = cast(Dict[str, Any], record)
+        pmids = record_dict.get("IdList", [])
         logger.info(f"Found {len(pmids)} articles")
         return pmids
 

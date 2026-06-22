@@ -2,7 +2,7 @@
 Research analytics module for analyzing publication metadata.
 """
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, cast
 import pandas as pd
 from collections import Counter
 import logging
@@ -64,7 +64,7 @@ def get_publications_per_year(df: pd.DataFrame) -> Dict[str, int]:
             except (ValueError, IndexError):
                 pass
 
-    year_counts = dict(sorted(Counter(years).items()))
+    year_counts = {str(k): v for k, v in sorted(Counter(years).items())}
     logger.info(f"Publications per year: {len(year_counts)} distinct years")
     return year_counts
 
@@ -202,4 +202,4 @@ def get_journal_trend(df: pd.DataFrame, journal: str) -> Dict[str, int]:
         logger.warning(f"No articles found for journal: {journal}")
         return {}
 
-    return get_publications_per_year(journal_df)
+    return get_publications_per_year(cast(pd.DataFrame, journal_df))

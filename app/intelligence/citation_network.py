@@ -16,7 +16,7 @@ Key capabilities:
 import logging
 import pickle
 from collections import defaultdict
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple, Any, cast
 
 import networkx as nx
 import numpy as np
@@ -144,10 +144,11 @@ class CitationNetworkBuilder:
             ) as handle:
                 refs_record = Entrez.read(handle)
 
-            if refs_record and refs_record[0].get("LinkSetDb"):
+            refs_list = cast(List[Dict[str, Any]], refs_record) if refs_record else []
+            if refs_list and refs_list[0].get("LinkSetDb"):
                 result["references"] = [
                     link["Id"]
-                    for link in refs_record[0]["LinkSetDb"][0].get("Link", [])
+                    for link in refs_list[0]["LinkSetDb"][0].get("Link", [])
                 ]
         except Exception as exc:
             logger.debug("References fetch failed for %s: %s", pmid, exc)
@@ -161,10 +162,11 @@ class CitationNetworkBuilder:
             ) as handle:
                 cites_record = Entrez.read(handle)
 
-            if cites_record and cites_record[0].get("LinkSetDb"):
+            cites_list = cast(List[Dict[str, Any]], cites_record) if cites_record else []
+            if cites_list and cites_list[0].get("LinkSetDb"):
                 result["cited_by"] = [
                     link["Id"]
-                    for link in cites_record[0]["LinkSetDb"][0].get("Link", [])
+                    for link in cites_list[0]["LinkSetDb"][0].get("Link", [])
                 ]
         except Exception as exc:
             logger.debug("Cited-by fetch failed for %s: %s", pmid, exc)

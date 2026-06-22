@@ -106,11 +106,13 @@ class TrendDetector:
             
             # 4. Group by year
             # Create a dense representation for easier manipulation (safe if max_df/min_df are set)
-            dtm_df = pd.DataFrame(dtm.toarray(), columns=feature_names)
+            # Create a dense representation for easier manipulation (safe if max_df/min_df are set)
+            dtm_array = dtm.toarray()  # type: ignore[union-attr]
+            dtm_df = pd.DataFrame(dtm_array, columns=feature_names)
             dtm_df['Year'] = self.df['Year'].values
             
             # Sum word occurrences per year
-            self.yearly_counts = dtm_df.groupby('Year').sum()
+            self.yearly_counts = pd.DataFrame(dtm_df.groupby('Year').sum())
             
             self.is_fitted = True
             logger.info(f"Fitted TrendDetector over {unique_years} years and {len(feature_names)} terms.")
@@ -163,9 +165,9 @@ class TrendDetector:
             
             results.append({
                 'Term': term,
-                'Total_Frequency': int(total_freq),
-                'Slope': float(slope),
-                'R_squared': float(r_value**2)
+                'Total_Frequency': int(total_freq),  # type: ignore[arg-type]
+                'Slope': float(slope),  # type: ignore[arg-type]
+                'R_squared': float(r_value ** 2),  # type: ignore[operator, arg-type]
             })
 
         df = pd.DataFrame(results)
@@ -208,11 +210,21 @@ class TrendDetector:
         bursts = []
         for term in self.yearly_counts.columns:
             current_val = self.yearly_counts.loc[current_year, term]
+            if isinstance(current_val, pd.Series):
+                current_val = current_val.iloc[0]
+            current_val = float(current_val)  # type: ignore[arg-type]
             if current_val < 3: # Ignore low-volume noise
                 continue
                 
             historical_max = self.yearly_counts.loc[previous_years, term].max()
+            if isinstance(historical_max, pd.Series):
+                historical_max = historical_max.iloc[0]
+            historical_max = float(historical_max)  # type: ignore[arg-type]
+            
             historical_mean = self.yearly_counts.loc[previous_years, term].mean()
+            if isinstance(historical_mean, pd.Series):
+                historical_mean = historical_mean.iloc[0]
+            historical_mean = float(historical_mean)  # type: ignore[arg-type]
             
             # Burst definition: Current year is more than double the historical max, 
             # and significantly above the mean
